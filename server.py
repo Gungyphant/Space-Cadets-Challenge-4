@@ -1,7 +1,6 @@
 import socket
 import sys
 import argparse
-from __phello__ import spam
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--name", help="the public name for the server")

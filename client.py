@@ -6,7 +6,7 @@ def communicate(server_ip: str, server_port: str):
         try:
             s.connect((server_ip, server_port))  # Connect to the server
         except ConnectionRefusedError as e:
-            raise ConnectionResetError(f"{server_ip}:{server_port} refused the connection; is it running?")
+            raise ConnectionRefusedError(f"{server_ip}:{server_port} refused the connection; is it running?")
         print(f"Successfully connected to {server_ip}:{server_port}")
         while True:
             message = input("> ")

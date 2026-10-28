@@ -15,26 +15,41 @@ import threading
 #
 #         print(f"Client {self.client_name} ({self.pretty_client_address}) connected")
 
+outgoing_messages: dict[socket.socket, list[str]] = {}  # connection: [messages]
 
-def communicate(connection, client_address):
+
+def announce(message: str) -> None:
+    for k, v in outgoing_messages.items():
+        v.append(message)
+
+
+def communicate(connection: socket.socket, client_address):
     pretty_client_address = f"{client_address[0]}:{client_address[1]}"
     # Exchange important information
     connection.sendall(server_name.encode())
     client_name = connection.recv(1024).decode()
 
     print(f"Client {client_name} ({pretty_client_address}) connected")
+    announce(f"{client_name} has joined the server")
+    outgoing_messages[connection] = []
     with connection:  # with block ensures the connection is properly terminated
         while True:
+            connection.sendall("".join(m + "\n" for m in outgoing_messages[connection]).encode())
+            outgoing_messages[connection] = []
             try:
                 data = connection.recv(1024)  # max 1024 (presumably bytes) in one call (if it goes over, it'll be split across multiple recvs and hence lines)
             except ConnectionResetError:
                 print(f"Client {client_name} ({pretty_client_address}) forcibly closed the connection")
+                announce(f"{client_name} has left the server")
                 break
             if not data:
-                # recv returns an empty string when the client disconnects
+                # recv returns an empty byte when the client disconnects
                 print(f"Client {client_name} ({pretty_client_address}) disconnected")
+                announce(f"{client_name} has left the server")
                 break
-            print(f"{client_name}: {data.decode(sys.stdout.encoding)}")  # Decode the byte string to a string using stdout's encoding
+            message = f"{client_name}: {data.decode(sys.stdout.encoding)}"  # Decode the byte string to a string using stdout's encoding
+            print(message)
+            announce(message)
 
 
 parser = argparse.ArgumentParser()

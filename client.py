@@ -1,23 +1,34 @@
 import socket
+import threading
+
+
+def monitor_messages(connection):
+    try:
+        while True:
+            print(connection.recv(1024).decode(), end="")
+    except ConnectionAbortedError:
+        print("\b\b\bDisconnected from")
 
 def communicate(server_ip: str, server_port: str, client_name: str) -> None:
     server_port = int(server_port)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:  # with block ensures the socket is properly closed
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:  # with block ensures the socket is properly closed
         try:
-            s.connect((server_ip, server_port))  # Connect to the server
+            connection.connect((server_ip, server_port))  # Connect to the server
         except ConnectionRefusedError as e:
             raise ConnectionRefusedError(f"{server_ip}:{server_port} refused the connection; is it running?") from e
         # Exchange important information
-        server_name = s.recv(1024).decode()
-        s.sendall(client_name.encode())
+        server_name = connection.recv(1024).decode()
+        connection.sendall(client_name.encode())
+
+        monitoring_thread = threading.Thread(target=monitor_messages, args=(connection,))
+        monitoring_thread.start()
 
         print(f"Successfully connected to {server_name}")
         while True:
             message = input("> ")
             if message == "!quit":
                 break
-            else:
-                s.sendall(message.encode())  # Encode the message as bytes and transmit it to the server
+            connection.sendall(message.encode())  # Encode the message as bytes and transmit it to the server
     print(f"Successfully disconnected from {server_ip}:{server_port}")
 
 if __name__ == "__main__":

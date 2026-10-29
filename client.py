@@ -1,13 +1,48 @@
 import socket
 import threading
+import time
+from tkinter import *
+from tkinter import ttk
 
 
-def monitor_messages(connection):
-    try:
-        while True:
-            print(connection.recv(1024).decode(), end="")
-    except ConnectionAbortedError:
-        print("\b\b\bDisconnected from")
+def transmit_message(message, connection):
+    connection.sendall(message.encode())  # Encode the message as bytes and transmit it to the server
+
+def gui(connection, client_name: str):
+    root = Tk()
+    frm = ttk.Frame(root, padding=10)
+    frm.grid()
+
+    chat_area = ttk.Label(frm)
+    chat_area.grid(row=0)
+
+    user_name = ttk.Label(frm, text=f"{client_name}: ")
+    user_name.grid(column=0, row=1)
+
+    message_box = Text(frm)
+    message_box.grid(column=1, row=1)
+
+    send_button = Button(text="Send", command=lambda: transmit_message(message_box.get('1.0', 'end-1c'), connection))
+    send_button.grid(column=2, row=1)
+
+    def live_update_chat_area():
+        try:
+            while True:
+                chat = connection.recv(1024).decode()
+                # If the connection sends twice between receives, the data may be duplicated
+                # However, the message should be preceded by \0, so the message is everything after the last \0
+                chat = chat.split("\0")[-1]
+                # print(chat)
+                chat_area.config(text=chat)
+                time.sleep(0.1)
+        except ConnectionAbortedError, OSError:
+            pass
+
+    chat_update_thread = threading.Thread(target=live_update_chat_area)
+    chat_update_thread.start()
+
+    root.mainloop()
+
 
 def communicate(server_ip: str, server_port: str, client_name: str) -> None:
     server_port = int(server_port)
@@ -20,16 +55,15 @@ def communicate(server_ip: str, server_port: str, client_name: str) -> None:
         server_name = connection.recv(1024).decode()
         connection.sendall(client_name.encode())
 
-        monitoring_thread = threading.Thread(target=monitor_messages, args=(connection,))
-        monitoring_thread.start()
+        gui(connection, client_name)
 
-        print(f"Successfully connected to {server_name}")
-        while True:
-            message = input("> ")
-            if message == "!quit":
-                break
-            connection.sendall(message.encode())  # Encode the message as bytes and transmit it to the server
-    print(f"Successfully disconnected from {server_ip}:{server_port}")
+        # print(f"Successfully connected to {server_name}")
+        # while True:
+        #     message = input("> ")
+        #     if message == "!quit":
+        #         break
+        #     connection.sendall(message.encode())  # Encode the message as bytes and transmit it to the server
+    print(f"Successfully disconnected from {server_name}")
 
 if __name__ == "__main__":
     import sys
